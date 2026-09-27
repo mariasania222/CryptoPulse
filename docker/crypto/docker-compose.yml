@@ -1,0 +1,75 @@
+services:
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    restart: unless-stopped
+
+  influxdb:
+    image: influxdb:2
+    container_name: influxdb
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - influxdb_config:/etc/influxdb2
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: admin12345
+      DOCKER_INFLUXDB_INIT_ORG: crypto
+      DOCKER_INFLUXDB_INIT_BUCKET: cryptodata
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: crypto-token-12345
+    restart: unless-stopped
+
+
+  telegraf:
+    image: telegraf:1.37
+    container_name: telegraf
+    depends_on:
+      - mosquitto
+      - influxdb
+    volumes:
+      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    depends_on:
+      - influxdb
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+
+
+  crypto-btc:
+   build: ./python
+   container_name: crypto-btc
+   command: python btc.py
+   depends_on:
+     - mosquitto
+   restart: unless-stopped
+
+  crypto-eth:
+   build: ./python
+   container_name: crypto-eth
+   command: python eth.py
+   depends_on:
+     - mosquitto
+   restart: unless-stopped
+
+volumes:
+  mosquitto_data:
+  mosquitto_log:
+  influxdb_data:
+  influxdb_config:
+  grafana_data: 
